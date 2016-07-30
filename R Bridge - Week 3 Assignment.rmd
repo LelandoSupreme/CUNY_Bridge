@@ -1,0 +1,84 @@
+---
+title: "R Bridge - Week 3 Assignment"
+author: "Leland Randles"
+date: "July 30, 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## UCI Mushroom Data Set
+
+* Overview of data set found here:  <https://archive.ics.uci.edu/ml/datasets/Mushroom>
+* Data Dictionary found here:  <https://archive.ics.uci.edu/ml/machine-learning-databases/mushroom/agaricus-lepiota.names>
+* Comma-separate data found here:  <https://archive.ics.uci.edu/ml/machine-learning-databases/mushroom/agaricus-lepiota.data>
+
+Task assigned:  Study the data set and data dictionary and then create a data frame which includes some (4 or 5) of the columns.  The "class" column (edible or poisonous) must be included.  The data set does not come with column headers, so meaningful columns names should be added.  Lastly, the data within the data frame should be translated from the current values, which are one-digit alpha codes, to the value represented by the code (i.e., "e" becomes "edible"). 
+
+### Outline
+
+* [Step 1](#Step 1). Connect to URL and download dataset into data.frame
+* [Step 2](#Step 2). Subset columns of interest into new data.frame:
+    + classes: edible=e, poisonous=p
+    + cap_surface:  fibrous=f,grooves=g,scaly=y,smooth=s
+    + odor:  almond=a,anise=l,creosote=c,fishy=y,foul=f,musty=m,none=n,pungent=p,spicy=s
+    + gill_size: broad=b,narrow=n
+    + veil_type:  partial=p,universal=u
+    + habitat:  grasses=g,leaves=l,meadows=m,paths=p,urban=u,waste=w,woods=d
+* [Step 3](#Step 3). Rename column headers
+* [Step 4](#Step 4). Translate data elements from codes to full values
+
+#### Step 1
+
+Connect to URL and download dataset into data.frame:
+
+```{r}
+theURL <- "https://archive.ics.uci.edu/ml/machine-learning-databases/mushroom/agaricus-lepiota.data"
+md <- read.table(file = theURL, header = FALSE, sep = ",")
+head(md)
+```
+
+#### Step 2
+
+* Subset columns of interest into new data.frame:
+    + classes: edible=e, poisonous=p
+    + cap_surface:  fibrous=f,grooves=g,scaly=y,smooth=s
+    + odor:  almond=a,anise=l,creosote=c,fishy=y,foul=f,musty=m,none=n,pungent=p,spicy=s
+    + gill_size: broad=b,narrow=n
+    + veil_type:  partial=p,universal=u
+    + habitat:  grasses=g,leaves=l,meadows=m,paths=p,urban=u,waste=w,woods=d
+
+```{r}
+cols <- c("V1","V3","V6","V9","V17","V23")
+mdc <- md[,cols]
+head(mdc)
+```
+
+#### Step 3
+
+Rename column headers:
+
+```{r}
+colnames(mdc) <- c("classes","cap_surface","odor","gill_size","veil_type","habitat")
+head(mdc)
+```
+
+#### Step 4
+
+Translate data elements from codes to full values.  Requires "cars" package:
+
+```{r results='hide', message=FALSE, warning=FALSE}
+install.packages("car", repos='https://mirrors.nics.utk.edu/cran/')
+```
+```{r}
+library(car)
+mdc$classes <- recode(mdc$classes,"'e'='edible';'p'='poisonous'")
+mdc$cap_surface <- recode(mdc$cap_surface,"'f'='fibrous';'g'='grooves';'y'='scaly';'s'='smooth'")
+mdc$odor <- recode(mdc$odor,"'a'='almond';'l'='anise';'c'='creosote';'y'='fishy';'f'='foul';'m'='musty';'n'='none';'p'='pungent';'s'='spicy'")
+mdc$gill_size <- recode(mdc$gill_size,"'b'='broad';'n'='narrow'")
+mdc$veil_type <- recode(mdc$veil_type,"'p'='partial';'u'='universal'")
+mdc$habitat <- recode(mdc$habitat,"'g'='grasses';'l'='leaves';'m'='meadows';'p'='paths';'u'='urban';'w'='waste';'d'='woods'")
+head(mdc)
+```
