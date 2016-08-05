@@ -1,0 +1,142 @@
+---
+title: "R Bridge - Week 4 Assignment"
+author: "Leland Randles"
+date: "August 5, 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## OFP (Visits to Physician's Office) Data Set
+
+* From "Ecdat" package, which is an R package containing multiple econometrics data sets (4,406 observations of 19 variables)
+* Overview of data set found here:  <https://raw.githubusercontent.com/vincentarelbundock/Rdatasets/master/doc/Ecdat/OFP.html>
+* Comma-separated data found here:  <https://raw.githubusercontent.com/vincentarelbundock/Rdatasets/master/csv/Ecdat/OFP.csv>
+
+Task assigned:  Exploratory data analysis; specifically, using R graphics to describe the data set and look for potential relationships in the data.  With respect to the Ecdat OFP data set, I'll be looking at age, family income and number of physician office visits. 
+
+### Outline
+
+* [Load "Ecdat" package to access dataset](#Step 1)
+* [Tidy Data](#Step 2)
+* [Create Histograms](#Step 3)
+* [Create Boxplots](#Step 4)
+* [Create Scatterplot](#Step 5)
+
+#### Load "Ecdat" package to access dataset
+
+```{r results='hide', message=FALSE, warning=FALSE}
+install.packages("Ecdat", repos='https://mirrors.nics.utk.edu/cran/')
+library(Ecdat)
+```
+
+Visually inspect data:
+```{r}
+head(OFP)
+```
+
+
+#### Tidy Data
+
+The age column is in mutiples of 10 and the family income column is in multiples of 10,000.  I subsetted the OFP data frame into a new data frame called 'grphdata' containing the three columns which interest me, renamed the column headers, and then multiplied the age by 10 and the family income by 10,000.
+
+```{r}
+# Subset data into new data frame
+c <- c("ofp","age","faminc")
+grphdata <- OFP[c]
+# Rename columns
+n <- c("No_Office_Visits","Age","Family_Income")
+colnames(grphdata) <- n
+# Multiply Age by 10 and Family_Income by 10,000 
+grphdata$Age <- grphdata$Age * 10
+grphdata$Family_Income <- grphdata$Family_Income * 10000
+# Visually inspect data
+head(grphdata)
+```
+
+
+#### Create Histograms
+
+Much of the code in this section was taken from, or inspired by, Robert I. Kabacoff, Ph.D.'s web site "Quick-R" (<http://www.statmethods.net/advgraphs/parameters.html>) and DataCamp's R-Blogger post "How to Make a Histogram with Basic R": <https://www.r-bloggers.com/how-to-make-a-histogram-with-basic-r/>
+
+A Histogram showing the distribution of ages for the OFP data set:
+
+```{r}
+hist(grphdata$Age, breaks=10, col="red", border = "blue", xlab="Age",main="Age Distribution for OFP Data Set") 
+```
+
+A Histogram showing the distribution of family incomes for the OFP data set:
+
+```{r}
+hist(grphdata$Family_Income/1000, breaks=50, col="green", border = "purple", xlab="Family Income (in Thousands)",main="Family Income Distribution for OFP Data Set", xlim = c(1,175))
+```
+
+Based on these histograms, we can conclude that the data set consists of an elderly population, the overwhelming majority of which are living on low fixed incomes. Over half the observations have family incomes under $25,000, and nearly 90% of the observatins have family incomes under $50,000.
+
+
+#### Create Boxplots
+
+First, I created an additional column in the data frame showing age ranges with the ultimate objective of creating box plots by age range.
+
+```{r}
+# Function to group ages into age ranges
+r <- function(x) {
+    if (x < 70) {"69 or Less"} 
+      else if (x >= 70 & x < 80) {"70 - 79"} 
+      else if (x >= 80 & x < 90) {"80 - 89"} 
+      else if (x >= 90 & x < 100) {"90 - 99"} 
+      else {"Over 99"}
+}
+# Add and populate Age_Range column in data frame based on Age
+grphdata$Age_Range <- mapply(r,grphdata$Age)
+# Visually inspect data
+head(grphdata)
+```
+
+Next, I created boxplots of number of visits by Age_Range:
+
+```{r}
+boxplot(No_Office_Visits~Age_Range,data=grphdata, main="Physician Office Visits by Age Range", xlab="Age", ylab="Office Visits", ylim = c(0,40))
+```
+
+A few observations regarding the boxplots:
+
+* The median, 25th percentiles and 75th percentiles do not vary as much by age range as one might have guessed.  We do see a lower median for "69 and under" (younger is healthier, one would surmise) and for "90-99" and "Over 99" (many of these likely live in nursing homes or other facilities where physician care is on-site).
+* For all age ranges except "Over 99", the data is skewed by a smaller subset of individuals who have large numbers of visits.  
+
+
+#### Create Scatterplot
+
+Next, a scatterplot was created showing number of visits against family income ranges.  Family income ranges were put into a new column called "Fam_Inc_Ranges":
+
+```{r}
+grphdata$Fam_Inc_Range <- round(grphdata$Family_Income, digits = -3)
+```
+
+Then, a new data frame showing average number of visits per Fam_Inc_Range was created using the sqldf package.
+
+Citiation information for sqldf:
+G. Grothendieck (2014). sqldf: Perform SQL Selects on R
+Data Frames. R package version 0.4-10.
+<https://CRAN.R-project.org/package=sqldf>
+
+```{r results='hide', message=FALSE, warning=FALSE}
+# Load sqldf
+install.packages("sqldf", repos='https://mirrors.nics.utk.edu/cran/')
+library(sqldf)
+```
+
+```{r}
+# Create new data set using income ranges and average visits
+avinc <- sqldf('select grphdata.Fam_Inc_Range, avg(grphdata.No_Office_Visits) as AvgVisits from grphdata group by grphdata.Fam_Inc_Range')
+```
+
+Lastly, a scatterplot was created using the new data frame showing Family Income Range against Average # of Office Visits.
+
+```{r}
+plot(avinc$Fam_Inc_Range/1000, avinc$AvgVisits, xlab = "Family Income Range (in Thousands)", ylab = "Ave. # of Office Visits", xlim = c(0,250), ylim = c(0,25))
+```
+
+It does not appear that Family Income is related to the average number of physician office visits.  Perhaps one could hypothesize that we see greater variability in office visits for family income ranges over $50K because those individuals can choose how often to go, while we see a tighter range of average number of visits for family incomes under $50K because number of visits might be constrained by medicare/medicaid coverage limits, but this is pure speculation and much more research would be needed before drawing any conclusions.
