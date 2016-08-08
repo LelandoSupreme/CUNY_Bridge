@@ -1,0 +1,289 @@
+---
+title: "R Bridge - Final Project"
+author: "Leland Randles"
+date: "August 7, 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Data Transformation and Exploratory Analysis Using 'hflights' Dataset
+
+* Citation information and documentation for the 'hflights' package can be found here:  <https://cran.r-project.org/web/packages/hflights/hflights.pdf>
+* The package consists of a single dataset called 'hflights'
+
+
+
+### Outline
+
+* [Load "hflights" package](#Step 1)
+* [Preparatory Data Profiling](#Step 2)
+* [Selection of Variables for Analysis](#Step 3)
+* [Create Data Frames for Analysis and Graphics](#Step 4)
+* [Display and Comment on Graphics](#Step 5)
+
+
+#### Load "hflights" package
+
+```{r results='hide', message=FALSE, warning=FALSE}
+install.packages("hflights", repos='https://mirrors.nics.utk.edu/cran/')
+library(hflights)
+```
+
+Visually inspect data:
+```{r}
+head(hflights)
+```
+
+
+
+#### Preparatory Data Profiling
+
+I started by glancing at the structure of the dataset to supplement the documentation (i.e., seeing how the Year, Month and Day columns are poplated) as well as to verify the number of observations:
+
+```{r}
+str(hflights)
+```
+
+Next, in an attempt to determine how I wanted to treat NA values, I used sapply to see how many NA values exist in each column:
+
+```{r}
+sapply(hflights, function(y) sum(length(which(is.na(y)))))
+```
+
+I can see that eight different columns have NA values, with the number of NA values ranging from 2,905 to 3,622. Next, I used the nrow function to see how many rows had at least one NA value:
+
+```{r}
+nrow(hflights[rowSums(is.na(hflights))!=0,])
+```
+
+Considering that eight different columns had NA values ranging from 2,905 to 3,622, and the number of rows which have any column with an NA value is 3,622, it is clear that when there is one column with an NA value, many or all of the other seven columns also have an NA value.  Therefore, I decided to exclude rows with any NA values from my analysis (see [Create Data Frames for Anlaysis and Graphics] section).
+
+Next, I used the unique function on multiple columns 1) to confirm my expections regarding distinct values, and 2) to ascertain which columns were practical to include in this analysis given the scope of the assignment.  Examples:
+
+```{r}
+unique(hflights$Month)
+```
+Confirms that values range from 1 to 12.
+
+```{r}
+unique(hflights$DayOfWeek)
+```
+Confirms that values range from 1 to 7 with 1 being Monday.
+
+```{r}
+unique(hflights$Origin)
+```
+Confirms that IAH and HOU are the only departure Origin values.
+
+```{r}
+unique(hflights$Dest)
+```
+Shows that Dest has too many distinct values to include as a variable for analysis in this project, given its scope.
+
+Lastly, I looked at the lowest and highest values for selected numeric columns (examples below) to get a feel how I could use ranges in my analyses:
+
+```{r}
+c(hflights$ActualElapsedTime[which.min(hflights$ActualElapsedTime)],hflights$ActualElapsedTime[which.max(hflights$ActualElapsedTime)])
+c(hflights$Distance[which.min(hflights$Distance)],hflights$Distance[which.max(hflights$Distance)])
+c(hflights$ArrDelay[which.min(hflights$ArrDelay)],hflights$ArrDelay[which.max(hflights$ArrDelay)])
+```
+
+
+
+#### Selection of Variables for Analysis
+
+After completing the basic data profiling described in the prior section, I chose the following columns for inclusion in my analyses:  Year, Month, DayofMonth, DayOfWeek, ArrDelay, Origin, and Distance.  
+
+Below are the questions I want to consider:
+1. Does the percentage of flights with ArrDelay > 10 vary by month?  In other words, is there a seasonal element to the percentage of delayed flights?  What about DayOfWeek?
+2. What's the frequency for delayed flights by range of time delay?  (Defining "delayed" to mean ArrDelay > 10).  Are the airports comparable?
+3. Is there a relationship between the Distance of flights and the ArrDelay (for flights where ArrDelay > 10)?
+
+I'm using ArrDelay > 10 based on the assumption that travelers won't be annoyed by a delay unless it is at least 10 minutes.  I'm ignoring DepDelay on the assumption that travellers don't care if their departure is delayed as long as they arrive on time, so the key factor is ArrDelay.  
+
+
+
+#### Create Data Frames for Anlaysis and Graphics
+
+First, I created a data frame consisting of the rows which do not have NA values in any column.  
+
+```{r}
+hf_excl_na <- hflights[rowSums(is.na(hflights))==0,]
+```
+
+Then, I subsetted that data frame to include only the columns I'm interested in:
+
+```{r}
+c <- c("Year", "Month", "DayofMonth", "DayOfWeek", "ArrDelay", "Origin", "Distance")
+hf_selected_cols <- hf_excl_na[c]
+```
+
+After that, I added two columns for plotting: MonthLabel and DayOfWeekLabel:
+
+```{r results='hide', message=FALSE, warning=FALSE}
+# Use of recode function requires 
+install.packages("car", repos='https://mirrors.nics.utk.edu/cran/')
+```
+```{r}
+library(car)
+# Add MonthLabel
+hf_selected_cols$MonthLabel <- ifelse(nchar(hf_selected_cols$Month)==1,paste0("0",as.character(hf_selected_cols$Month)," - ",recode(as.character(hf_selected_cols$Month),"'1'='Jan';'2'='Feb';'3'='Mar';'4'='Apr';'5'='May';'6'='Jun';'7'='Jul';'8'='Aug';'9'='Sep';'10'='Oct';'11'='Nov';'12'='Dec'")),paste0(as.character(hf_selected_cols$Month)," - ",recode(as.character(hf_selected_cols$Month),"'1'='Jan';'2'='Feb';'3'='Mar';'4'='Apr';'5'='May';'6'='Jun';'7'='Jul';'8'='Aug';'9'='Sep';'10'='Oct';'11'='Nov';'12'='Dec'")))
+# Add DayOfWeekLabel
+hf_selected_cols$DayOfWeekLabel <- paste0(
+as.character(hf_selected_cols$DayOfWeek)," - ",recode(as.character(hf_selected_cols$DayOfWeek),"'1'='Mon';'2'='Tue';'3'='Wed';'4'='Thu';'5'='Fri';'6'='Sat';'7'='Sun'"))
+#Visually inspect data
+head(hf_selected_cols)
+```
+
+Next, I added a column called ArrDelay_Range based on ranges for the ArrDelay values, and a column called ArrDelay_Over_Ten, which is 0 if the ArrDelay is less than 11 and 1 if the ArrDelay is between 11 and 290:
+
+```{r}
+# Function to group ArrDelay into ranges
+r <- function(x) {
+    if (x >= 11 & x <= 50) {"011-050"} 
+      	else if (x >= 51 & x <= 90) {"051-090"} 
+	      else if (x >= 91 & x <= 130) {"091-130"} 
+	      else if (x >= 131 & x <= 170) {"131-170"} 
+	      else if (x >= 171 & x <= 210) {"171-210"} 
+	      else if (x >= 211 & x <= 250) {"211-250"} 
+	      else if (x >= 251 & x <= 290) {"251-290"} 
+	      else if (x >= 291) {"Very late"} 
+	      else {"10 or Less"}
+}
+# Add and populate ArrDelay_Range column in data frame based on ArrDelay
+hf_selected_cols$ArrDelay_Range <- mapply(r,hf_selected_cols$ArrDelay)
+# Add ArrDelay_OverTen indicator
+hf_selected_cols$ArrDelay_OverTen <- ifelse(hf_selected_cols$ArrDelay > 10 & hf_selected_cols$ArrDelay < 291,1,0)
+# Visually inspect data
+head(hf_selected_cols)
+```
+
+I then built my final datasets for the graphics.  To create some of the datasets, I needed the sqldf package.
+
+Citiation information for sqldf:
+G. Grothendieck (2014). sqldf: Perform SQL Selects on R
+Data Frames. R package version 0.4-10.
+<https://CRAN.R-project.org/package=sqldf>
+
+```{r results='hide', message=FALSE, warning=FALSE}
+# Load sqldf
+install.packages("sqldf", repos='https://mirrors.nics.utk.edu/cran/')
+library(sqldf)
+```
+
+Using sqldf, I created a data frame called "flights_per_mth_iah", showing total flights per month which originated from IAH.  Then I created a 2nd data frame called "del_over_ten_per_mth", which shows the total number of flights originating fro IAH which arrived more than 10 minutes late.  Finally, I merged the two data frames into one data frame called "perc_by_mth_iah" and added a column computing the percentage of flights which arrived more than 10 minutes late:
+
+```{r}
+# Flights per month from IAH
+flights_per_mth_iah <- sqldf('select hf_selected_cols.Month, hf_selected_cols.MonthLabel, count(hf_selected_cols.MonthLabel) as No_Flights from hf_selected_cols where hf_selected_cols.Origin = "IAH" group by  hf_selected_cols.Month, hf_selected_cols.MonthLabel order by hf_selected_cols.MonthLabel')
+# Flights per month from IAH that arrived more than 10 minutes late
+del_over_ten_per_mth_iah <- sqldf('select hf_selected_cols.Month, hf_selected_cols.MonthLabel, count(hf_selected_cols.MonthLabel) as No_Del_Over_Ten from hf_selected_cols where hf_selected_cols.Origin = "IAH" and ArrDelay > 10 group by hf_selected_cols.Month, hf_selected_cols.MonthLabel order by hf_selected_cols.MonthLabel')
+# Merge the two data frames
+perc_by_mth_iah <- merge(flights_per_mth_iah, del_over_ten_per_mth_iah, by = c("Month","MonthLabel"))
+# Populate ArrDelPerc column
+perc_by_mth_iah$ArrDelPerc <- perc_by_mth_iah$No_Del_Over_Ten / perc_by_mth_iah$No_Flights
+perc_by_mth_iah <- perc_by_mth_iah[order(perc_by_mth_iah$Month),] 
+```
+
+Then I created another set data frames for IAH using the DayOfWeekLabel instead of MonthLabel:
+
+```{r}
+# Flights by day of week from IAH
+flights_by_dow_iah <- sqldf('select hf_selected_cols.DayOfWeek, hf_selected_cols.DayOfWeekLabel, count(hf_selected_cols.DayOfWeekLabel) as No_Flights from hf_selected_cols where hf_selected_cols.Origin = "IAH" group by hf_selected_cols.DayOfWeek, hf_selected_cols.DayOfWeekLabel order by hf_selected_cols.DayOfWeekLabel')
+# Flights by day of week from IAH that arrived more than 10 minutes late
+del_over_ten_by_dow_iah <- sqldf('select hf_selected_cols.DayOfWeek, hf_selected_cols.DayOfWeekLabel, count(hf_selected_cols.DayOfWeekLabel) as No_Del_Over_Ten from hf_selected_cols where hf_selected_cols.Origin = "IAH" and ArrDelay > 10 group by hf_selected_cols.DayOfWeek, hf_selected_cols.DayOfWeekLabel order by hf_selected_cols.DayOfWeekLabel')
+# Merge the two data frames
+perc_by_dow_iah <- merge(flights_by_dow_iah, del_over_ten_by_dow_iah, by = c("DayOfWeek","DayOfWeekLabel"))
+# Populate ArrDelPerc column
+perc_by_dow_iah$ArrDelPerc <- perc_by_dow_iah$No_Del_Over_Ten / perc_by_dow_iah$No_Flights
+```
+
+Lastly, I created the exact same set of data frames for HOU as I'd created for IAH:
+
+```{r}
+# Flights per month from HOU
+flights_per_mth_hou <- sqldf('select hf_selected_cols.Month, hf_selected_cols.MonthLabel, count(hf_selected_cols.MonthLabel) as No_Flights from hf_selected_cols where hf_selected_cols.Origin = "HOU" group by hf_selected_cols.Month, hf_selected_cols.MonthLabel order by hf_selected_cols.MonthLabel')
+# Flights per month from HOU that arrived more than 10 minutes late
+del_over_ten_per_mth_hou <- sqldf('select hf_selected_cols.Month, hf_selected_cols.MonthLabel, count(hf_selected_cols.MonthLabel) as No_Del_Over_Ten from hf_selected_cols where hf_selected_cols.Origin = "HOU" and ArrDelay > 10 group by hf_selected_cols.Month, hf_selected_cols.MonthLabel order by hf_selected_cols.MonthLabel')
+# Merge the two data frames
+perc_by_mth_hou <- merge(flights_per_mth_hou, del_over_ten_per_mth_hou, by = c("Month","MonthLabel"))
+# Populate ArrDelPerc column
+perc_by_mth_hou$ArrDelPerc <- perc_by_mth_hou$No_Del_Over_Ten / perc_by_mth_hou$No_Flights
+perc_by_mth_hou <- perc_by_mth_hou[order(perc_by_mth_hou$Month),] 
+# Flights by day of week from HOU
+flights_by_dow_hou <- sqldf('select hf_selected_cols.DayOfWeek, hf_selected_cols.DayOfWeekLabel, count(hf_selected_cols.DayOfWeekLabel) as No_Flights from hf_selected_cols where hf_selected_cols.Origin = "HOU" group by hf_selected_cols.DayOfWeek, hf_selected_cols.DayOfWeekLabel order by hf_selected_cols.DayOfWeekLabel')
+# Flights by day of week from HOU that arrived more than 10 minutes late
+del_over_ten_by_dow_hou <- sqldf('select hf_selected_cols.DayOfWeek, hf_selected_cols.DayOfWeekLabel, count(hf_selected_cols.DayOfWeekLabel) as No_Del_Over_Ten from hf_selected_cols where hf_selected_cols.Origin = "HOU" and ArrDelay > 10 group by hf_selected_cols.DayOfWeek, hf_selected_cols.DayOfWeekLabel order by hf_selected_cols.DayOfWeekLabel')
+# Merge the two data frames
+perc_by_dow_hou <- merge(flights_by_dow_hou, del_over_ten_by_dow_hou, by = c("DayOfWeek","DayOfWeekLabel"))
+# Populate ArrDelPerc column
+perc_by_dow_hou$ArrDelPerc <- perc_by_dow_hou$No_Del_Over_Ten / perc_by_dow_hou$No_Flights
+```
+
+I also created two data frames from the hf_selected_cols data frame, one made up only of IAH rows and the other consisting of HOU rows:
+
+```{r}
+hf_iah_final <- subset(hf_selected_cols, Origin == "IAH")
+hf_hou_final <- subset(hf_selected_cols, Origin == "HOU")
+```
+
+
+
+#### Display and Comment on Graphics
+
+For all graphics, I am showing IAH and HOU separately for comparison.  The first graphic is meant to explore the question "Does the percentage of flights with ArrDelay > 10 vary by the month (is there a seasonal element to the percentage of delayed flights)?  What about DayOfWeek?"
+
+```{r}
+par(mar=c(3, 3, 3, 3))
+par(oma = c(2, 2, 2, 2))
+par(pch=22, col="blue")
+par(mfrow=c(2,2)) # all plots on one page 
+plot(perc_by_dow_hou$DayOfWeek, perc_by_dow_hou$ArrDelPerc, main="HOU %age Late Arrival by Day of Week", xaxt = 'n', ylab = "Percentage")
+lines(perc_by_dow_hou$DayOfWeek, perc_by_dow_hou$ArrDelPerc, main="HOU %age Late Arrival by Day of Week", xaxt = 'n', ylab = "Percentage")
+axis(1, at = perc_by_dow_hou$DayOfWeek, labels = perc_by_dow_hou$DayOfWeekLabel, las = 2)
+plot(perc_by_dow_iah$DayOfWeek, perc_by_dow_iah$ArrDelPerc, main="IAH %age Late Arrival by Day of Week", xaxt = 'n', ylab = "Percentage")
+lines(perc_by_dow_iah$DayOfWeek, perc_by_dow_iah$ArrDelPerc, main="IAH %age Late Arrival by Day of Week", xaxt = 'n', ylab = "Percentage")
+axis(1, at = perc_by_dow_iah$DayOfWeek, labels = perc_by_dow_iah$DayOfWeekLabel, las = 2)
+plot(perc_by_mth_hou$Month, perc_by_mth_hou$ArrDelPerc, main="HOU %age Late Arrival by Month", xaxt = 'n', ylab = "Percentage")
+lines(perc_by_mth_hou$Month, perc_by_mth_hou$ArrDelPerc, main="HOU %age Late Arrival by Month", xaxt = 'n', ylab = "Percentage")
+axis(1, at = perc_by_mth_hou$Month, labels = perc_by_mth_hou$MonthLabel, las = 2)
+plot(perc_by_mth_iah$Month, perc_by_mth_iah$ArrDelPerc, main="IAH %age Late Arrival by Month", xaxt = 'n', ylab = "Percentage")
+lines(perc_by_mth_iah$Month, perc_by_mth_iah$ArrDelPerc, main="IAH %age Late Arrival by Month", xaxt = 'n', ylab = "Percentage")
+axis(1, at = perc_by_mth_iah$Month, labels = perc_by_mth_iah$MonthLabel, las = 2)
+```
+
+I don't think these graphics call out any research possibilities, except perhaps an investigation into whether arrival delays occur more in April - June.  A multi-year data set would be needed to research that.  
+
+The next graphic attempts to explore the "What's the frequency for delayed flights by range of time delay?" question.
+
+```{r}
+s <- subset(hf_iah_final, ArrDelay_OverTen == 1)
+x <- table(s$ArrDelay_Range)
+barplot(x, main="Late Arriving IAH Flights by Range of Minutes Late", xlab = s$ArrDelay_Range, las = 2, legend.text = NULL)
+s <- subset(hf_hou_final, ArrDelay_OverTen == 1)
+x <- table(s$ArrDelay_Range)
+barplot(x, main="Late Arriving HOU Flights by Range of Minutes Late", xlab = s$ArrDelay_Range, las = 2, legend.text = NULL)
+```
+
+I thought we might see a difference between HOU and IAH, but in fact both have similar distributions.
+
+Finally, I installed Hadley Wickham's ggplot2 package to create a scatterplot to explore the "Is there a relationship between the Distance of flights and the ArrDelay (for flights where ArrDelay > 10)?" question.
+
+```{r results='hide', message=FALSE, warning=FALSE}
+# Load sqldf
+install.packages("ggplot2", repos='https://mirrors.nics.utk.edu/cran/')
+library(ggplot2)
+```
+
+```{r}
+s <- subset(hf_hou_final, ArrDelay_OverTen == 1)
+ggplot(s, aes(x=s$Distance, y=s$ArrDelay)) + geom_point() + labs(title="Distance Plotted Against Arrival Delay for Significantly Delayed Flights - HOU",x="Distance in Miles", y = "Arrival Delay in Minutes")
+s <- subset(hf_iah_final, ArrDelay_OverTen == 1)
+ggplot(s, aes(x=s$Distance, y=s$ArrDelay)) + geom_point() + labs(title="Distance Plotted Against Arrival Delay for Significantly Delayed Flights - IAH",x="Distance in Miles", y = "Arrival Delay in Minutes")
+```
+
+Again, the graphics do not provide any insight to opportunities for additional analysis.  It appears the distance of the flight is not related to the length of the arrival delay.  
+
