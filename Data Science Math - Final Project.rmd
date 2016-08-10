@@ -1,0 +1,276 @@
+---
+title: "Data Science Math - Final Project"
+author: "Leland Randles"
+date: "August 9, 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Outline
+
+* [Load hflights Package](#load-hflights-package)
+* [Probability](#probability)
+* [Descriptive and Inferential Statistics](#descriptive-and-inferential-statistics)
+* [Linear Algebra and Correlation](#linear-algebra-and-correlation)
+* [Calculus Based Probability & Statistics](#calculus-based-probability-and-statistics)
+
+
+### Load hflights Package
+
+```{r results='hide', message=FALSE, warning=FALSE}
+install.packages("hflights", repos='https://mirrors.nics.utk.edu/cran/')
+library(hflights)
+```
+
+* Citation information and documentation for the 'hflights' package can be found here:  <https://cran.r-project.org/web/packages/hflights/hflights.pdf>
+* The package consists of a single dataset called 'hflights'
+
+
+### Probability
+
+I chose DepDelay (departure delay) as random variable *X* and ArrDelay (arrival delay) as random variable *Y*.
+
+Both are positively skewed:
+
+```{r}
+x <- hflights$DepDelay
+hist(x, breaks = 150, freq = FALSE, xlim = c(-40,150), main = "Histogram of Departure Delay",xlab = "Departure Delay in Minutes")
+y <- hflights$ArrDelay
+hist(y, breaks = 150, freq = FALSE, xlim = c(-40,150), main = "Histogram of Arrival Delay",xlab = "Arrival Delay in Minutes")
+```
+
+After an analysis of NA values, I decided to eliminate any rows which had NA in any of the columns and reset *X* and *Y* (please see the "Preparatory Data Profiling" section of <https://rpubs.com/LelandoSupreme/200997> for that analysis):
+
+```{r}
+hf_excl_na <- hflights[rowSums(is.na(hflights))==0,]
+x <- hf_excl_na$DepDelay
+y <- hf_excl_na$ArrDelay
+```
+
+Then I used the quantile function to compute *x*, which is the 3rd quartile of the *X* variable, and *y*, which is the 2nd quartile of *Y* variable:
+
+```{r}
+quantile(x, probs = 0.75)
+quantile(y, probs = 0.5)
+```
+
+Compute P(X > x | Y > y)
+
+```{r}
+# Is the P(X > x and Y > y) divided by P(Y > y)
+# Probability P(X > x and Y > y)
+p1 <- nrow(subset(hf_excl_na, hf_excl_na$DepDelay > quantile(hf_excl_na$DepDelay, probs = 0.75) & hf_excl_na$ArrDelay > quantile(hf_excl_na$ArrDelay, probs = 0.5))) / nrow(hf_excl_na)
+# Probability P(Y > y)
+p2 <- nrow(subset(hf_excl_na, hf_excl_na$ArrDelay > quantile(hf_excl_na$ArrDelay, probs = 0.5))) / nrow(hf_excl_na)
+p1 / p2
+```
+
+Compute P(X > x, Y > y)
+
+```{r}
+nrow(subset(hf_excl_na, hf_excl_na$DepDelay > quantile(hf_excl_na$DepDelay, probs = 0.75) & hf_excl_na$ArrDelay > quantile(hf_excl_na$ArrDelay, probs = 0.5))) / nrow(hf_excl_na)
+```
+
+Compute P(X < x | Y > y)
+
+```{r}
+# Is the P(X < x and Y > y) divided by P(Y > y)
+# Probability P(X < x and Y > y)
+p1 <- nrow(subset(hf_excl_na, hf_excl_na$DepDelay <= quantile(hf_excl_na$DepDelay, probs = 0.75) & hf_excl_na$ArrDelay > quantile(hf_excl_na$ArrDelay, probs = 0.5))) / nrow(hf_excl_na)
+# Probability P(Y > y)
+p2 <- nrow(subset(hf_excl_na, hf_excl_na$ArrDelay > quantile(hf_excl_na$ArrDelay, probs = 0.5))) / nrow(hf_excl_na)
+p1 / p2
+```
+
+
+Table of counts: You can see below the key to map my R code (displayed below the table) to the counts grid.  For example, the cell with (a) in it was populated using the code labeled "a" in my R scripts. You can see all totals columns were computed by adding some or all of the (a), (b), (c), and (d) values.
+
+![Mapping of Cells to Formulas](C:\Users\Lelan\Desktop\Grid.jpg)
+
+```{r}
+# Compute value for (a)
+nrow(subset(hf_excl_na, hf_excl_na$DepDelay <= quantile(hf_excl_na$DepDelay, probs = 0.75) & hf_excl_na$ArrDelay <= quantile(hf_excl_na$ArrDelay, probs = 0.5)))
+# Compute value for (b)
+nrow(subset(hf_excl_na, hf_excl_na$DepDelay <= quantile(hf_excl_na$DepDelay, probs = 0.75) & hf_excl_na$ArrDelay > quantile(hf_excl_na$ArrDelay, probs = 0.5)))
+# Compute value for (c)
+nrow(subset(hf_excl_na, hf_excl_na$DepDelay > quantile(hf_excl_na$DepDelay, probs = 0.75) & hf_excl_na$ArrDelay <= quantile(hf_excl_na$ArrDelay, probs = 0.5)))
+# Compute value for (d)
+nrow(subset(hf_excl_na, hf_excl_na$DepDelay > quantile(hf_excl_na$DepDelay, probs = 0.75) & hf_excl_na$ArrDelay > quantile(hf_excl_na$ArrDelay, probs = 0.5)))
+```
+
+![Counts](C:\Users\Lelan\Desktop\Counts.jpg)
+
+**Does splitting the data in this fashion make them independent?**  No. The fact that we can take observations and subset them doesn't make them independent or dependent.
+
+**Let A be the new variable counting those observations above the 3rd quartile for X, and let B be the new variable counting those observations for the 2nd quartile for Y. Does P(A|B) = P(A) * P(B)?  Check mathematically.**  No - see below.
+
+```{r}
+A <- nrow(subset(hf_excl_na, hf_excl_na$DepDelay > quantile(hf_excl_na$DepDelay, probs = 0.75)))
+B <- nrow(subset(hf_excl_na, hf_excl_na$ArrDelay <= quantile(hf_excl_na$ArrDelay, probs = 0.5)))
+# P(A)
+pA <- A / nrow(hf_excl_na)
+# P(B)
+pB <- B / nrow(hf_excl_na)
+# P(A|B)
+pAB <- nrow(subset(hf_excl_na, hf_excl_na$DepDelay > quantile(hf_excl_na$DepDelay, probs = 0.75) & hf_excl_na$ArrDelay <= quantile(hf_excl_na$ArrDelay, probs = 0.5))) / nrow(hf_excl_na)
+pA * pB
+pAB
+```
+
+**Evaluate by running a Chi Square test for association.**
+
+```{r message = FALSE}
+chisqtbl <- table(hf_excl_na$DepDelay, hf_excl_na$ArrDelay)
+chisq.test(chisqtbl)
+```
+
+### Descriptive and Inferential Statistics
+
+Here are summary statistics for DepDelay and ArrDelay to supplment the Histograms in the prior section:
+
+```{r}
+summary(hf_excl_na$DepDelay)
+summary(hf_excl_na$ArrDelay)
+```
+
+To create a scatterplot, I loaded Hadley Wickham's ggplot2 package:
+
+```{r results='hide', message=FALSE, warning=FALSE}
+# Load ggplot2
+install.packages("ggplot2", repos='https://mirrors.nics.utk.edu/cran/')
+library(ggplot2)
+```
+
+Then I created a scatterplot of DepDelay against ArrDelay:
+
+```{r}
+ggplot(hf_excl_na, aes(x=hf_excl_na$ArrDelay, y=hf_excl_na$DepDelay)) + geom_point() + labs(title="Depature Delay vs. Arrival Delay",x="Arrival Delay in Minutes", y = "Departure Delay in Minutes")
+```
+
+It certainly looks like the variables are correlated.  
+
+**Provide a 95% confidence interval for the difference in the mean of the variables.**
+
+```{r}
+# Difference between the means
+dm <- mean(hf_excl_na$DepDelay) - mean(hf_excl_na$ArrDelay)
+# Standard error of the difference between means
+se <- sqrt(((sd(hf_excl_na$DepDelay)/nrow(hf_excl_na))+(sd(hf_excl_na$ArrDelay)/nrow(hf_excl_na))))
+# 95% confidence interval 
+c(dm - se*qnorm(0.975),dm + se*qnorm(0.975))
+```
+
+**Derive a correlation matrix for two of the quantitative variables you selected.**
+
+```{r}
+cm <- cor(hf_excl_na[c("DepDelay","ArrDelay")])
+cm
+```
+
+**Test the hypothesis that the correlation between these variables is 0 and provide a 99% confidence interval.**
+
+```{r}
+cor.test(hf_excl_na$DepDelay,hf_excl_na$ArrDelay,conf.level = 0.99)
+```
+
+Given the p-value, the likelihood that the hypothesis of a zero correlation is very low.
+
+
+
+### Linear Algebra and Correlation
+
+**Invert your correlation matrix. (This is known as the precison matrix).**
+
+```{r}
+im <- solve(cm)
+im
+```
+
+** Multiply the correlation matrix by the precision matrix, and then mutiply the precision matrix by the correlation matrix.**
+
+```{r}
+cm %*% im
+im %*% cm
+```
+
+The result in both cases is the identity matrix.
+
+
+### Calculus Based Probability and Statistics
+
+**For your variable which is skewed to the right, shift it so that the minimum value is above zero.**
+
+```{r}
+#Create new DF
+hf_min_val <- hf_excl_na
+# Check range for DepDelay
+c(hf_min_val$DepDelay[which.min(hf_min_val$DepDelay)],hf_min_val$DepDelay[which.max(hf_min_val$DepDelay)])
+# Add 34 to all values
+hf_min_val$DepDelay <- hf_min_val$DepDelay + 34
+# Check range for ArrDelay
+c(hf_min_val$ArrDelay[which.min(hf_min_val$ArrDelay)],hf_min_val$ArrDelay[which.max(hf_min_val$ArrDelay)])
+# Add 71 to all values
+hf_min_val$ArrDelay <- hf_min_val$ArrDelay + 71
+```
+
+Though both variabiles are skewed to the right, for this exercise, I will use the ArrDelay variable.  
+
+**Then load the MASS package and run fitdistr to fit an exponential probability density function.**  Documentation for MASS::fitdistr is here:  <https::/stat.ethz.ch/R-manual/R-devel/library/MASS/html/fitdistr.html>
+
+```{r results='hide', message=FALSE, warning=FALSE}
+install.packages("MASS", repos='https://mirrors.nics.utk.edu/cran/')
+library(MASS)
+```
+
+```{r}
+fd <- fitdistr(hf_min_val$ArrDelay, "exponential")
+```
+
+**Find the optimal value of lambda for this distribution, and then take 1000 samples from this exponential distribution using this value. Plot a histogram and compare it with a histogram of your original variable.**
+
+```{r}
+# Optimal value of lambda
+fd$estimate
+# 100 samples from this distribution
+r <- rexp(1000,fd$estimate)
+# Plot a histogram using 1000 samples
+hist(r, freq = FALSE, main = "Histogram of 1000 Samples")
+# Plot a histogram using original variable
+hist(hf_excl_na$ArrDelay, freq = FALSE, xlim = c(0, 500), main = "Histogram of Arrival Delay",xlab="Arrival Delay in Minutes")
+```
+
+The two histograms are similar in shape except that one starts below zero and other only contains positive values. 
+
+**Using the exponential pdf, find the 5th and 95th percentiles using the cumulative distribution function (CDF).**
+
+```{r}
+# 5th percentile
+pexp(quantile(r, probs = 0.05), rate=fd$estimate, lower.tail = TRUE)
+# 95th percentile
+pexp(quantile(r, probs = 0.95), rate=fd$estimate, lower.tail = TRUE)
+```
+
+**Also generate a 95% confidence interval from the empirical data, assuming normality.**
+
+```{r}
+# y was set to hf_excl_na$ArrDelay earlier
+# Calculate mean and standard deviation
+m <- mean(y)
+se <- sd(y)
+# 95% confidence interval
+c(m - (se*qnorm(0.975)), m + (se*qnorm(0.975)))
+```
+
+**Finally, provide the empirical 5th percentile and 95th percentile of the data.**
+
+```{r}
+quantile(y, probs = 0.05)
+quantile(y, probs = 0.95)
+```
+
+**Discuss.**
+
+There is a large divergence between the 5% and 95% percentiles (assuming normality) and the 5th and 95th percentiles determined empirically because the distribution is not normal, it is exponetial.
